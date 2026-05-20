@@ -95,6 +95,7 @@ class H1RoughDemo:
         env_cfg.curriculum = None
         env_cfg.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)
         env_cfg.commands.base_velocity.ranges.heading = (-1.0, 1.0)
+        env_cfg = simulation_app.configure_env_cfg(env_cfg)
         # wrap around environment for rsl-rl
         self.env = RslRlVecEnvWrapper(ManagerBasedRLEnv(cfg=env_cfg))
         self.device = self.env.unwrapped.device

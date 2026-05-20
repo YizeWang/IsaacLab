@@ -270,8 +270,35 @@ class DemoAppLauncher:
 
         app_launcher = AppLauncher(self.args_cli)
         self._app = app_launcher.app
+        self._sync_sensor_cfg_modules()
         if hasattr(app_launcher, "device"):
             self.args_cli.device = app_launcher.device
+
+    @staticmethod
+    def _sync_sensor_cfg_modules() -> None:
+        """Reload sensor config modules whose base config class was loaded during Kit startup."""
+        import importlib
+        import sys
+
+        from isaaclab.sensors.sensor_base_cfg import SensorBaseCfg
+
+        for module_name, module in list(sys.modules.items()):
+            if not module_name.startswith("isaaclab.sensors.") or not module_name.endswith("_cfg"):
+                continue
+            module_sensor_base = getattr(module, "SensorBaseCfg", None)
+            if module_sensor_base is None or module_sensor_base is SensorBaseCfg:
+                continue
+
+            module = importlib.reload(module)
+            module_parts = module_name.split(".")
+            parent_packages = (".".join(module_parts[:i]) for i in range(1, len(module_parts)))
+            for attr_name, attr in vars(module).items():
+                if not isinstance(attr, type) or attr.__module__ != module_name:
+                    continue
+                for package_name in parent_packages:
+                    package = sys.modules.get(package_name)
+                    if package is not None and attr_name in vars(package):
+                        setattr(package, attr_name, attr)
 
     def _launch_runtime(self, cfg: Any) -> None:
         """Launch the simulation runtime if this launcher has not done so yet."""
