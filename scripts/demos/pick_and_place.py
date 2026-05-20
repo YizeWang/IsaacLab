@@ -3,25 +3,34 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+"""This script demonstrates a pick and place task with keyboard control.
+
+.. code-block:: bash
+
+    # Usage
+    ./isaaclab.sh -p scripts/demos/pick_and_place.py
+
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/pick_and_place.py physics=newton_mjwarp --visualizer newton
+
+"""
+
 from __future__ import annotations
 
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Keyboard control for Isaac Lab Pick and Place.")
 parser.add_argument("--num_envs", type=int, default=32, help="Number of environments to spawn.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+simulation_app = DemoAppLauncher(args_cli, kit_required=True)
 
 """Rest everything follows."""
 

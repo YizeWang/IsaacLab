@@ -6,22 +6,26 @@
 """
 Script to view ARL Robot 1.
 
-Launch Isaac Sim Simulator first.
+.. code-block:: bash
+
+    # Usage
+    ./isaaclab.sh -p scripts/demos/arl_robot_1.py
+
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/arl_robot_1.py physics=newton_mjwarp --visualizer newton
+
 """
 
 # Create argparser
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 parser = argparse.ArgumentParser(description="View ARL Robot 1 with Lee Position Controller.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+simulation_app = DemoAppLauncher(args_cli, kit_required=True)
 
 """Rest everything follows."""
 
@@ -45,7 +49,7 @@ def main():
 
     # Create simulation context
     sim_cfg = sim_utils.SimulationCfg(dt=0.01)
-    sim = SimulationContext(sim_cfg)
+    sim = simulation_app.create_context(sim_cfg, SimulationContext)
 
     # Create a dome light with light blue color
     stage = omni.usd.get_context().get_stage()

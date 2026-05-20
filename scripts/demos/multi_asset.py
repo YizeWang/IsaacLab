@@ -10,30 +10,27 @@
     # Usage
     ./isaaclab.sh -p scripts/demos/multi_asset.py --num_envs 2048
 
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --num_envs 2048 physics=newton_mjwarp --visualizer newton
+
 """
 
 from __future__ import annotations
 
-"""Launch Isaac Sim Simulator first."""
-
-
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Demo on spawning different objects in multiple environments.")
 parser.add_argument("--num_envs", type=int, default=512, help="Number of environments to spawn.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+simulation_app = DemoAppLauncher(args_cli)
 
 """Rest everything follows."""
 
@@ -286,12 +283,13 @@ def main():
     """Main function."""
     # Load kit helper
     sim_cfg = sim_utils.SimulationCfg(dt=0.005, device=args_cli.device)
-    sim = SimulationContext(sim_cfg)
+    sim = simulation_app.create_context(sim_cfg, SimulationContext)
     # Set main camera
     sim.set_camera_view([2.5, 0.0, 4.0], [0.0, 0.0, 2.0])
 
     # Design scene
     scene_cfg = MultiObjectSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0, replicate_physics=True)
+    scene_cfg = simulation_app.configure_scene_cfg(scene_cfg)
     with Timer("[INFO] Time to create scene: "):
         scene = InteractiveScene(scene_cfg)
 

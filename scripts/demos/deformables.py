@@ -12,24 +12,20 @@
 
 """
 
-"""Launch Isaac Sim Simulator first."""
-
+# TODO: Non-rigid bodies are not supported by the newton backend yet.
 
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # create argparser
 parser = argparse.ArgumentParser(description="This script demonstrates how to spawn deformable prims into the scene.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
 # launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+simulation_app = DemoAppLauncher(args_cli, kit_required=True)
 
 """Rest everything follows."""
 
@@ -225,7 +221,7 @@ def main():
     """Main function."""
     # Initialize the simulation context
     sim_cfg = sim_utils.SimulationCfg(dt=0.01, device=args_cli.device)
-    sim = sim_utils.SimulationContext(sim_cfg)
+    sim = simulation_app.create_context(sim_cfg, sim_utils.SimulationContext)
     # Set main camera
     sim.set_camera_view([4.0, 4.0, 3.0], [0.5, 0.5, 0.0])
 

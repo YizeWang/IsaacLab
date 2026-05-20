@@ -11,26 +11,23 @@ This script demonstrates different single-arm manipulators.
     # Usage
     ./isaaclab.sh -p scripts/demos/arms.py
 
-"""
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/arms.py physics=newton_mjwarp --visualizer newton
 
-"""Launch Isaac Sim Simulator first."""
+"""
 
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script demonstrates different single-arm manipulators.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
+simulation_app = DemoAppLauncher(args_cli)
 
-# launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
 
 """Rest everything follows."""
 
@@ -91,7 +88,7 @@ def design_scene() -> tuple[dict, list[list[float]]]:
     cfg = sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd")
     cfg.func("/World/Origin1/Table", cfg, translation=(0.55, 0.0, 1.05))
     # -- Robot
-    franka_arm_cfg = FRANKA_PANDA_CFG.replace(prim_path="/World/Origin1/Robot")
+    franka_arm_cfg = simulation_app.tune_articulation_cfg(FRANKA_PANDA_CFG.replace(prim_path="/World/Origin1/Robot"))
     franka_arm_cfg.init_state.pos = (0.0, 0.0, 1.05)
     franka_panda = Articulation(cfg=franka_arm_cfg)
 
@@ -103,7 +100,7 @@ def design_scene() -> tuple[dict, list[list[float]]]:
     )
     cfg.func("/World/Origin2/Table", cfg, translation=(0.0, 0.0, 1.03))
     # -- Robot
-    ur10_cfg = UR10_CFG.replace(prim_path="/World/Origin2/Robot")
+    ur10_cfg = simulation_app.tune_articulation_cfg(UR10_CFG.replace(prim_path="/World/Origin2/Robot"))
     ur10_cfg.init_state.pos = (0.0, 0.0, 1.03)
     ur10 = Articulation(cfg=ur10_cfg)
 
@@ -113,7 +110,9 @@ def design_scene() -> tuple[dict, list[list[float]]]:
     cfg = sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/ThorlabsTable/table_instanceable.usd")
     cfg.func("/World/Origin3/Table", cfg, translation=(0.0, 0.0, 0.8))
     # -- Robot
-    kinova_arm_cfg = KINOVA_JACO2_N7S300_CFG.replace(prim_path="/World/Origin3/Robot")
+    kinova_arm_cfg = simulation_app.tune_articulation_cfg(
+        KINOVA_JACO2_N7S300_CFG.replace(prim_path="/World/Origin3/Robot")
+    )
     kinova_arm_cfg.init_state.pos = (0.0, 0.0, 0.8)
     kinova_j2n7s300 = Articulation(cfg=kinova_arm_cfg)
 
@@ -123,7 +122,9 @@ def design_scene() -> tuple[dict, list[list[float]]]:
     cfg = sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/ThorlabsTable/table_instanceable.usd")
     cfg.func("/World/Origin4/Table", cfg, translation=(0.0, 0.0, 0.8))
     # -- Robot
-    kinova_arm_cfg = KINOVA_JACO2_N6S300_CFG.replace(prim_path="/World/Origin4/Robot")
+    kinova_arm_cfg = simulation_app.tune_articulation_cfg(
+        KINOVA_JACO2_N6S300_CFG.replace(prim_path="/World/Origin4/Robot")
+    )
     kinova_arm_cfg.init_state.pos = (0.0, 0.0, 0.8)
     kinova_j2n6s300 = Articulation(cfg=kinova_arm_cfg)
 
@@ -133,7 +134,7 @@ def design_scene() -> tuple[dict, list[list[float]]]:
     cfg = sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd")
     cfg.func("/World/Origin5/Table", cfg, translation=(0.55, 0.0, 1.05))
     # -- Robot
-    kinova_arm_cfg = KINOVA_GEN3_N7_CFG.replace(prim_path="/World/Origin5/Robot")
+    kinova_arm_cfg = simulation_app.tune_articulation_cfg(KINOVA_GEN3_N7_CFG.replace(prim_path="/World/Origin5/Robot"))
     kinova_arm_cfg.init_state.pos = (0.0, 0.0, 1.05)
     kinova_gen3n7 = Articulation(cfg=kinova_arm_cfg)
 
@@ -145,7 +146,7 @@ def design_scene() -> tuple[dict, list[list[float]]]:
     )
     cfg.func("/World/Origin6/Table", cfg, translation=(0.0, 0.0, 1.03))
     # -- Robot
-    sawyer_arm_cfg = SAWYER_CFG.replace(prim_path="/World/Origin6/Robot")
+    sawyer_arm_cfg = simulation_app.tune_articulation_cfg(SAWYER_CFG.replace(prim_path="/World/Origin6/Robot"))
     sawyer_arm_cfg.init_state.pos = (0.0, 0.0, 1.03)
     sawyer = Articulation(cfg=sawyer_arm_cfg)
 
@@ -216,7 +217,7 @@ def main():
     """Main function."""
     # Initialize the simulation context
     sim_cfg = sim_utils.SimulationCfg(device=args_cli.device)
-    sim = sim_utils.SimulationContext(sim_cfg)
+    sim = simulation_app.create_context(sim_cfg, sim_utils.SimulationContext)
     # Set main camera
     sim.set_camera_view([3.5, 0.0, 3.2], [0.0, 0.0, 0.5])
     # design scene
@@ -231,7 +232,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # run the main function
     main()
-    # close sim app
     simulation_app.close()

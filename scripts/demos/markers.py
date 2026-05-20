@@ -10,26 +10,24 @@
     # Usage
     ./isaaclab.sh -p scripts/demos/markers.py
 
-"""
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/markers.py physics=newton_mjwarp --visualizer newton
 
-"""Launch Isaac Sim Simulator first."""
+"""
 
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script demonstrates different types of markers.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+simulation_app = DemoAppLauncher(args_cli)
 
 """Rest everything follows."""
 
@@ -97,7 +95,7 @@ def main():
     """Main function."""
     # Load kit helper
     sim_cfg = sim_utils.SimulationCfg(dt=0.01, device=args_cli.device)
-    sim = SimulationContext(sim_cfg)
+    sim = simulation_app.create_context(sim_cfg, SimulationContext)
     # Set main camera
     sim.set_camera_view([0.0, 18.0, 12.0], [0.0, 3.0, 0.0])
 

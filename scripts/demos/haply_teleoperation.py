@@ -23,6 +23,9 @@ teleoperate a robotic arm in Isaac Lab. The Haply provides:
     # With sensitivity adjustment
     ./isaaclab.sh -p scripts/demos/haply_teleoperation.py --pos_sensitivity 2.0
 
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/haply_teleoperation.py physics=newton_mjwarp --visualizer newton
+
 Prerequisites:
     1. Install websockets package: pip install websockets
     2. Have Haply SDK running and accessible via WebSocket
@@ -33,7 +36,7 @@ Prerequisites:
 
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Demonstration of Haply device teleoperation with Isaac Lab.")
@@ -51,11 +54,9 @@ parser.add_argument(
     help="Position sensitivity scaling factor.",
 )
 
-AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(visualizer=["kit"])
-args_cli = parser.parse_args()
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+args_cli = DemoAppLauncher.parse_args(parser)
+simulation_app = DemoAppLauncher(args_cli)
 
 import numpy as np
 import torch
@@ -344,7 +345,7 @@ def run_simulator(
 def main():
     """Main function to set up and run the Haply teleoperation demo."""
     sim_cfg = sim_utils.SimulationCfg(device=args_cli.device, dt=1 / 200)
-    sim = sim_utils.SimulationContext(sim_cfg)
+    sim = simulation_app.create_context(sim_cfg, sim_utils.SimulationContext)
 
     # set the simulation view
     sim.set_camera_view([1.6, 1.0, 1.70], [0.4, 0.0, 1.0])

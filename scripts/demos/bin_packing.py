@@ -16,6 +16,9 @@ and out-of-bounds recovery inside an interactive simulation loop.
     # Usage
     ./isaaclab.sh -p scripts/demos/bin_packing.py --num_envs 32
 
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/bin_packing.py physics=newton_mjwarp --visualizer newton
+
 """
 
 from __future__ import annotations
@@ -25,21 +28,18 @@ from __future__ import annotations
 
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Demo usage of RigidObjectCollection through bin packing example")
 parser.add_argument("--num_envs", type=int, default=16, help="Number of environments to spawn.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+simulation_app = DemoAppLauncher(args_cli)
 
 """Rest everything follows."""
 
@@ -358,7 +358,7 @@ def main() -> None:
     """
     # Load kit helper
     sim_cfg = sim_utils.SimulationCfg(dt=0.005, device=args_cli.device)
-    sim = SimulationContext(sim_cfg)
+    sim = simulation_app.create_context(sim_cfg, SimulationContext)
     # Set main camera
     sim.set_camera_view((2.5, 0.0, 4.0), (0.0, 0.0, 2.0))
 

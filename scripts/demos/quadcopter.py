@@ -11,31 +11,28 @@ This script demonstrates how to simulate a quadcopter.
     # Usage
     ./isaaclab.sh -p scripts/demos/quadcopter.py
 
-"""
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/quadcopter.py physics=newton_mjwarp --visualizer newton
 
-"""Launch Isaac Sim Simulator first."""
+"""
 
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script demonstrates how to simulate a quadcopter.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+simulation_app = DemoAppLauncher(args_cli)
 
 """Rest everything follows."""
 
 import torch
-import warp as wp
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation
@@ -51,7 +48,7 @@ def main():
     """Main function."""
     # Load kit helper
     sim_cfg = sim_utils.SimulationCfg(dt=0.005, device=args_cli.device)
-    sim = SimulationContext(sim_cfg)
+    sim = simulation_app.create_context(sim_cfg, SimulationContext)
     # Set main camera
     sim.set_camera_view(eye=[0.5, 0.5, 1.0], target=[0.0, 0.0, 0.5])
 
@@ -75,7 +72,7 @@ def main():
 
     # Fetch relevant parameters to make the quadcopter hover in place
     prop_body_ids = robot.find_bodies("m.*_prop")[0]
-    robot_mass = wp.to_torch(robot.root_view.get_masses())[0].sum()
+    robot_mass = robot.data.body_mass.torch[0].sum()
     gravity = torch.tensor(sim.cfg.gravity, device=sim.device).norm()
 
     # Now we are ready!

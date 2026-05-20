@@ -15,6 +15,8 @@ This script demonstrates an interactive demo with the H1 rough terrain environme
 
 """Launch Isaac Sim Simulator first."""
 
+# TODO: Known issues in the newton backend: robots instantly fall upon spawn
+
 import argparse
 import importlib.metadata as metadata
 import os
@@ -24,7 +26,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."
 import scripts.reinforcement_learning.rsl_rl.cli_args as cli_args  # isort: skip
 
 
-from isaaclab.app import AppLauncher
+from isaaclab_tasks.utils.demo_launcher import DemoAppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(
@@ -32,16 +34,13 @@ parser = argparse.ArgumentParser(
 )
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
-args_cli = parser.parse_args()
+args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+simulation_app = DemoAppLauncher(args_cli, kit_required=True)
 
 """Rest everything follows."""
 
@@ -218,6 +217,7 @@ def main():
     """Main function."""
     demo_h1 = H1RoughDemo()
     obs, _ = demo_h1.env.reset()
+    print("[INFO]: Setup complete...")
     while simulation_app.is_running():
         # check for selected robots
         demo_h1.update_selected_object()
