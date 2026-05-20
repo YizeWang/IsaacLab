@@ -31,6 +31,8 @@ simulation_app = DemoAppLauncher(args_cli)
 
 """Rest everything follows."""
 
+import time
+
 import torch
 
 import isaaclab.sim as sim_utils
@@ -91,10 +93,25 @@ def define_markers() -> VisualizationMarkers:
     return VisualizationMarkers(marker_cfg)
 
 
+def seed_marker_only_mjwarp_model() -> None:
+    """Seed a minimal Newton model for MJWarp marker-only demos."""
+    if not simulation_app.is_newton_mjwarp:
+        return
+
+    from isaaclab_newton.physics import NewtonManager
+
+    builder = NewtonManager.create_builder()
+    body = builder.add_body(mass=1.0)
+    builder.add_joint_revolute(parent=-1, child=body, axis=(0.0, 0.0, 1.0))
+    NewtonManager.set_builder(builder)
+
+
 def main():
     """Main function."""
     # Load kit helper
     sim_cfg = sim_utils.SimulationCfg(dt=0.01, device=args_cli.device)
+    if simulation_app.is_newton_mjwarp:
+        sim_cfg.render_interval = 2
     sim = simulation_app.create_context(sim_cfg, SimulationContext)
     # Set main camera
     sim.set_camera_view([0.0, 18.0, 12.0], [0.0, 3.0, 0.0])
@@ -126,12 +143,15 @@ def main():
     marker_indices = torch.arange(my_visualizer.num_prototypes).repeat(num_markers_per_type)
 
     # Play the simulator
+    seed_marker_only_mjwarp_model()
     sim.reset()
     # Now we are ready!
     print("[INFO]: Setup complete...")
 
     # Yaw angle
     yaw = torch.zeros_like(marker_locations[:, 0])
+    render_dt = max(sim.get_rendering_dt(), 1.0 / 60.0)
+    sim_step_count = 0
     # Simulate physics
     while simulation_app.is_running():
         # rotate the markers around the z-axis for visualization
@@ -142,7 +162,14 @@ def main():
         if yaw[0].item() % (0.5 * torch.pi) < 0.01:
             marker_indices = torch.roll(marker_indices, 1)
         # perform step
-        sim.step()
+        if simulation_app.is_newton_mjwarp:
+            sim.step(render=False)
+            sim_step_count += 1
+            if sim_step_count % sim.cfg.render_interval == 0 and sim.is_rendering:
+                sim.render()
+                time.sleep(render_dt)
+        else:
+            sim.step()
         # increment yaw
         yaw += 0.01
 

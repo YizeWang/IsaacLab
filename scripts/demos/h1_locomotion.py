@@ -48,10 +48,14 @@ import torch
 from rsl_rl.runners import OnPolicyRunner
 
 import carb
-import omni
-from omni.kit.viewport.utility import get_viewport_from_window_name
-from omni.kit.viewport.utility.camera_state import ViewportCameraState
 from pxr import Gf, Sdf
+
+try:
+    from omni.kit.viewport.utility import get_viewport_from_window_name
+    from omni.kit.viewport.utility.camera_state import ViewportCameraState
+except ImportError:
+    get_viewport_from_window_name = None
+    ViewportCameraState = None
 
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.sim.utils.stage import get_current_stage
@@ -105,19 +109,43 @@ class H1RoughDemo:
         # obtain the trained policy for inference
         self.policy = ppo_runner.get_inference_policy(device=self.device)
 
-        self.create_camera()
         self.commands = torch.zeros(env_cfg.scene.num_envs, 4, device=self.device)
         self.commands[:, 0:3] = self.env.unwrapped.command_manager.get_command("base_velocity")
-        self.set_up_keyboard()
-        self._prim_selection = omni.usd.get_context().get_selection()
+        self.viewport = None
+        self._prim_selection = None
+        self._sub_keyboard = None
         self._selected_id = None
         self._previous_selected_id = None
         self._camera_local_transform = torch.tensor([-2.5, 0.0, 0.8], device=self.device)
+        self._setup_kit_controls()
+
+    def _setup_kit_controls(self):
+        """Set up Kit viewport controls when the selected visualizer provides them."""
+        if get_viewport_from_window_name is None or ViewportCameraState is None:
+            return
+
+        try:
+            import omni.usd
+        except ImportError:
+            return
+
+        self.create_camera()
+        if self.viewport is None:
+            return
+
+        self.set_up_keyboard()
+        self._prim_selection = omni.usd.get_context().get_selection()
 
     def create_camera(self):
         """Creates a camera to be used for third-person view."""
+        if get_viewport_from_window_name is None:
+            return
+
         stage = get_current_stage()
         self.viewport = get_viewport_from_window_name("Viewport")
+        if self.viewport is None:
+            return
+
         # Create camera
         self.camera_path = "/World/Camera"
         self.perspective_path = "/OmniverseKit_Persp"
@@ -132,8 +160,19 @@ class H1RoughDemo:
 
     def set_up_keyboard(self):
         """Sets up interface for keyboard input and registers the desired keys for control."""
+        try:
+            import omni.appwindow
+        except ImportError:
+            return
+
         self._input = carb.input.acquire_input_interface()
-        self._keyboard = omni.appwindow.get_default_app_window().get_keyboard()
+        app_window = omni.appwindow.get_default_app_window()
+        if app_window is None:
+            return
+        self._keyboard = app_window.get_keyboard()
+        if self._keyboard is None:
+            return
+
         self._sub_keyboard = self._input.subscribe_to_keyboard_events(self._keyboard, self._on_keyboard_event)
         T = 1
         R = 0.5
@@ -153,11 +192,11 @@ class H1RoughDemo:
                 if self._selected_id is not None:
                     self.commands[self._selected_id] = self._key_to_control[event.input.name]
             # Escape key exits out of the current selected robot view
-            elif event.input.name == "ESCAPE":
+            elif event.input.name == "ESCAPE" and self._prim_selection is not None:
                 self._prim_selection.clear_selected_prim_paths()
             # C key swaps between third-person and perspective views
             elif event.input.name == "C":
-                if self._selected_id is not None:
+                if self._selected_id is not None and self.viewport is not None:
                     if self.viewport.get_active_camera() == self.camera_path:
                         self.viewport.set_active_camera(self.perspective_path)
                     else:
@@ -172,6 +211,9 @@ class H1RoughDemo:
         For valid robots, we enter the third-person view for that robot.
         When a new robot is selected, we reset the command of the previously selected
         to continue random commands."""
+
+        if self._prim_selection is None or self.viewport is None:
+            return
 
         self._previous_selected_id = self._selected_id
         selected_prim_paths = self._prim_selection.get_selected_prim_paths()
@@ -199,6 +241,9 @@ class H1RoughDemo:
     def _update_camera(self):
         """Updates the per-frame transform of the third-person view camera to follow
         the selected robot's torso transform."""
+
+        if self.viewport is None or ViewportCameraState is None:
+            return
 
         base_pos = self.env.unwrapped.scene["robot"].data.root_pos_w.torch[
             self._selected_id, :

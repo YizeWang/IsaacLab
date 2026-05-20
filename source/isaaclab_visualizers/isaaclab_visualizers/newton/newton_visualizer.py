@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -19,6 +20,7 @@ from isaaclab.visualizers.base_visualizer import BaseVisualizer
 
 from isaaclab_visualizers.newton_adapter import apply_viewer_visible_worlds, resolve_visible_env_indices
 
+from .newton_visualization_markers import render_newton_visualization_markers
 from .newton_visualizer_cfg import NewtonVisualizerCfg
 
 logger = logging.getLogger(__name__)
@@ -289,6 +291,7 @@ class NewtonVisualizer(BaseVisualizer):
         num_envs = scene_data_provider.num_envs
         metadata = {"num_envs": num_envs}
         self._env_ids = self._compute_visualized_env_ids()
+        self._resolved_visible_env_ids = resolve_visible_env_indices(self._env_ids, self.cfg.max_visible_envs, num_envs)
         self._model = NewtonManager.get_model()
         self._state = NewtonManager.get_state()
 
@@ -308,7 +311,10 @@ class NewtonVisualizer(BaseVisualizer):
         )
 
         if self._viewer is not None:
-            self._viewer.set_model(self._model)
+            set_model_max_worlds = self._get_initial_max_worlds()
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="max_worlds is deprecated.*", category=DeprecationWarning)
+                self._viewer.set_model(self._model, max_worlds=set_model_max_worlds)
             apply_viewer_visible_worlds(
                 self._viewer,
                 env_ids=self._env_ids,
@@ -339,7 +345,6 @@ class NewtonVisualizer(BaseVisualizer):
             self._viewer.renderer.sky_lower = self._viewer._coerce_color3(self.cfg.sky_lower_color)
             self._viewer.renderer._light_color = self._viewer._coerce_color3(self.cfg.light_color)
 
-        self._resolved_visible_env_ids = resolve_visible_env_indices(self._env_ids, self.cfg.max_visible_envs, num_envs)
         num_visualized_envs = (
             len(self._resolved_visible_env_ids) if self._resolved_visible_env_ids is not None else num_envs
         )
@@ -381,6 +386,7 @@ class NewtonVisualizer(BaseVisualizer):
             self._update_camera_from_usd_path()
 
         self._state = NewtonManager.get_state()
+        num_envs = NewtonManager.get_num_envs()
 
         update_frequency = self._viewer._update_frequency if self._viewer else self._update_frequency
         if self._step_counter % update_frequency != 0:
@@ -389,13 +395,17 @@ class NewtonVisualizer(BaseVisualizer):
         try:
             if not self._viewer.is_paused():
                 self._viewer.begin_frame(self._sim_time)
-                if self._state is not None:
-                    body_q = getattr(self._state, "body_q", None)
-                    if hasattr(body_q, "shape") and body_q.shape[0] == 0:
-                        self._viewer.end_frame()
-                        return
-                    self._viewer.log_state(self._state)
-                self._viewer.end_frame()
+                try:
+                    if self._state is not None:
+                        body_q = getattr(self._state, "body_q", None)
+                        if not (hasattr(body_q, "shape") and body_q.shape[0] == 0):
+                            self._viewer.log_state(self._state)
+                    if self.cfg.enable_markers:
+                        render_newton_visualization_markers(
+                            self._viewer, self._resolved_visible_env_ids, num_envs=num_envs
+                        )
+                finally:
+                    self._viewer.end_frame()
             else:
                 self._viewer._update()
         except Exception as exc:
@@ -476,6 +486,14 @@ class NewtonVisualizer(BaseVisualizer):
     def supports_live_plots(self) -> bool:
         """Newton OpenGL viewer does not provide live-plot panels."""
         return False
+
+    def _get_initial_max_worlds(self) -> int | None:
+        """Return an initial contiguous world cap for Newton GL model setup."""
+        if self._resolved_visible_env_ids is None:
+            return None
+        if self._resolved_visible_env_ids == list(range(len(self._resolved_visible_env_ids))):
+            return len(self._resolved_visible_env_ids)
+        return None
 
     def is_training_paused(self) -> bool:
         """Return whether training is paused from viewer controls."""

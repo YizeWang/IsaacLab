@@ -41,6 +41,7 @@ import warp as wp
 from isaaclab_physx.assets import SurfaceGripper, SurfaceGripperCfg
 
 import carb
+import carb.input
 import omni
 
 import isaaclab.sim as sim_utils
@@ -59,6 +60,53 @@ from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import sample_uniform
 
 from isaaclab_assets.robots.pick_and_place import PICK_AND_PLACE_CFG
+
+
+def fix_mjwarp_reversed_joints() -> None:
+    """Swap reversed joint body targets for Newton MJWarp demos."""
+    if not simulation_app.is_newton_mjwarp:
+        return
+
+    from pxr import UsdPhysics
+
+    stage = omni.usd.get_context().get_stage()
+    root_bodies: set[str] = set()
+    joints_to_check = []
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdPhysics.Joint):
+            continue
+        body0_targets = prim.GetRelationship("physics:body0").GetTargets()
+        body1_targets = prim.GetRelationship("physics:body1").GetTargets()
+        if body0_targets and not body1_targets:
+            root_bodies.add(str(body0_targets[0]))
+        elif body1_targets and not body0_targets:
+            root_bodies.add(str(body1_targets[0]))
+        elif body0_targets and body1_targets:
+            joints_to_check.append(prim)
+
+    if not root_bodies:
+        return
+
+    for prim in joints_to_check:
+        body0_rel = prim.GetRelationship("physics:body0")
+        body1_rel = prim.GetRelationship("physics:body1")
+        body0_path = str(body0_rel.GetTargets()[0])
+        body1_path = str(body1_rel.GetTargets()[0])
+        body1_is_parent = body1_path in root_bodies or body0_path.startswith(body1_path + "/")
+        body0_is_parent = body0_path in root_bodies or body1_path.startswith(body0_path + "/")
+
+        if body0_is_parent or not body1_is_parent:
+            continue
+
+        body0_rel.SetTargets(body1_rel.GetTargets())
+        body1_rel.SetTargets([body0_path])
+        for attr_suffix in ("localPos", "localRot"):
+            attr0 = prim.GetAttribute(f"physics:{attr_suffix}0")
+            attr1 = prim.GetAttribute(f"physics:{attr_suffix}1")
+            val0, val1 = attr0.Get(), attr1.Get()
+            if val0 is not None and val1 is not None:
+                attr0.Set(val1)
+                attr1.Set(val0)
 
 
 @configclass
@@ -230,6 +278,7 @@ class PickAndPlaceEnv(DirectRLEnv):
         self.gripper = SurfaceGripper(self.cfg.gripper)
         # add ground plane
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
+        fix_mjwarp_reversed_joints()
         # clone and replicate
         self.scene.clone_environments(copy_from_source=False)
         # add articulation to scene
@@ -429,6 +478,7 @@ def main():
     # create environment configuration
     env_cfg = PickAndPlaceEnvCfg()
     env_cfg.scene.num_envs = args_cli.num_envs
+    env_cfg = simulation_app.configure_env_cfg(env_cfg)
     # create environment
     pick_and_place = PickAndPlaceEnv(env_cfg)
     obs, _ = pick_and_place.reset()

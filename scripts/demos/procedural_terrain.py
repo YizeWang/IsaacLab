@@ -70,7 +70,7 @@ import random
 import torch
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import AssetBase
+from isaaclab.assets import AssetBase, RigidObject, RigidObjectCfg
 from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.terrains import FlatPatchSamplingCfg, TerrainImporter, TerrainImporterCfg
 
@@ -143,6 +143,25 @@ def design_scene() -> tuple[dict, torch.Tensor]:
     return scene_entities, terrain_importer.env_origins
 
 
+def seed_terrain_only_mjwarp_model(scene_entities: dict[str, AssetBase]) -> None:
+    """Add a hidden rigid body so MJWarp can initialize terrain-only demos."""
+    if not simulation_app.is_newton_mjwarp:
+        return
+
+    dummy_cfg = RigidObjectCfg(
+        prim_path="/World/NewtonTerrainAnchor",
+        spawn=sim_utils.CuboidCfg(
+            size=(0.001, 0.001, 0.001),
+            visible=False,
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=True),
+            mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
+            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, -1000.0)),
+    )
+    scene_entities["newton_anchor"] = RigidObject(cfg=dummy_cfg)
+
+
 def run_simulator(sim: sim_utils.SimulationContext, entities: dict[str, AssetBase], origins: torch.Tensor):
     """Runs the simulation loop."""
     # Simulate physics
@@ -161,6 +180,7 @@ def main():
     # design scene
     scene_entities, scene_origins = design_scene()
     # Play the simulator
+    seed_terrain_only_mjwarp_model(scene_entities)
     sim.reset()
     # Now we are ready!
     print("[INFO]: Setup complete...")
