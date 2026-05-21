@@ -12,7 +12,7 @@
 
 """
 
-# TODO: Non-rigid bodies are not supported by the newton backend yet.
+# TODO(yizew@nvidia.com): Non-rigid bodies are not supported by the Newton backend yet.
 
 import argparse
 

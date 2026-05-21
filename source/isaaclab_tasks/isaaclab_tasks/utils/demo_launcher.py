@@ -17,6 +17,8 @@ from .hydra import parse_overrides
 from .preset_cli import fold_preset_tokens
 from .sim_launcher import add_launcher_args, launch_simulation
 
+__all__ = ["DemoAppLauncher", "create_demo_physics_cfg", "tune_mjwarp_articulation_cfg"]
+
 if TYPE_CHECKING:
     from isaaclab_newton.physics import NewtonCfg
 
@@ -24,6 +26,7 @@ if TYPE_CHECKING:
     from isaaclab.physics.physics_manager_cfg import PhysicsCfg
     from isaaclab.sim import SimulationCfg, SimulationContext
 
+# Conservative armature defaults used by demos to stabilize MJWarp articulation examples.
 MJWARP_ARMATURE = 0.02
 MJWARP_GRIPPER_ARMATURE = 0.005
 PHYSICS_PRESETS = ("physx", "newton_mjwarp")
@@ -240,7 +243,7 @@ class DemoAppLauncher:
                 return any(visualizer.is_running() for visualizer in self._sim.visualizers)
         if self._app is not None:
             return self._app.is_running()
-        return True
+        return False
 
     def close(self) -> None:
         """Close the simulation runtime owned by the proxy."""
@@ -249,12 +252,15 @@ class DemoAppLauncher:
             self._launch_context = None
             if self._app is None and self._sim is not None:
                 type(self._sim).clear_instance()
+                self._sim = None
         elif self._sim is not None and self._app is None:
             type(self._sim).clear_instance()
+            self._sim = None
 
         if self._app is not None:
             self._app.close()
             self._app = None
+            self._sim = None
 
     def _needs_early_app_launch(self) -> bool:
         """Return whether Kit must be launched before the rest of the script imports."""

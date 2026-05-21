@@ -11,11 +11,14 @@ This script demonstrates an interactive demo with the H1 rough terrain environme
     # Usage
     ./isaaclab.sh -p scripts/demos/h1_locomotion.py
 
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/h1_locomotion.py physics=newton_mjwarp --visualizer newton
+
 """
 
 """Launch Isaac Sim Simulator first."""
 
-# TODO: Known issues in the newton backend: robots instantly fall upon spawn
+# TODO(yizew@nvidia.com): Known Newton backend limitation: robots instantly fall upon spawn.
 
 import argparse
 import importlib.metadata as metadata
@@ -40,7 +43,7 @@ parser.set_defaults(visualizer=["kit"])
 args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-simulation_app = DemoAppLauncher(args_cli, kit_required=True)
+simulation_app = DemoAppLauncher(args_cli)
 
 """Rest everything follows."""
 
@@ -50,21 +53,29 @@ from rsl_rl.runners import OnPolicyRunner
 import carb
 from pxr import Gf, Sdf
 
-try:
-    from omni.kit.viewport.utility import get_viewport_from_window_name
-    from omni.kit.viewport.utility.camera_state import ViewportCameraState
-except ImportError:
-    get_viewport_from_window_name = None
-    ViewportCameraState = None
 
 from isaaclab.envs import ManagerBasedRLEnv
-from isaaclab.sim.utils.stage import get_current_stage
 from isaaclab.utils.math import quat_apply
 
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper, handle_deprecated_rsl_rl_cfg
 from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
 
 from isaaclab_tasks.manager_based.locomotion.velocity.config.h1.rough_env_cfg import H1RoughEnvCfg_PLAY
+
+try:
+    import carb
+    import omni
+    from omni.kit.viewport.utility import get_viewport_from_window_name
+    from omni.kit.viewport.utility.camera_state import ViewportCameraState
+    from pxr import Gf, Sdf
+
+    from isaaclab.sim.utils.stage import get_current_stage
+
+    KIT_VIEWPORT_AVAILABLE = True
+except ModuleNotFoundError:
+    if simulation_app.app is not None:
+        raise
+    KIT_VIEWPORT_AVAILABLE = False
 
 TASK = "Isaac-Velocity-Rough-H1-v0"
 RL_LIBRARY = "rsl_rl"
@@ -102,6 +113,7 @@ class H1RoughDemo:
         env_cfg = simulation_app.configure_env_cfg(env_cfg)
         # wrap around environment for rsl-rl
         self.env = RslRlVecEnvWrapper(ManagerBasedRLEnv(cfg=env_cfg))
+        simulation_app.bind_sim(self.env.unwrapped.sim)
         self.device = self.env.unwrapped.device
         # load previously trained model
         ppo_runner = OnPolicyRunner(self.env, agent_cfg.to_dict(), log_dir=None, device=self.device)
@@ -211,6 +223,8 @@ class H1RoughDemo:
         For valid robots, we enter the third-person view for that robot.
         When a new robot is selected, we reset the command of the previously selected
         to continue random commands."""
+        if not self._kit_interaction_enabled:
+            return
 
         if self._prim_selection is None or self.viewport is None:
             return
