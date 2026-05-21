@@ -15,7 +15,7 @@ This script demonstrates an interactive demo with the H1 rough terrain environme
 
 """Launch Isaac Sim Simulator first."""
 
-# TODO: Known issues in the newton backend: robots instantly fall upon spawn
+# TODO(yizew@nvidia.com): Known Newton backend limitation: robots instantly fall upon spawn.
 
 import argparse
 import importlib.metadata as metadata
