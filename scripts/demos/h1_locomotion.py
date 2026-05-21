@@ -11,6 +11,9 @@ This script demonstrates an interactive demo with the H1 rough terrain environme
     # Usage
     ./isaaclab.sh -p scripts/demos/h1_locomotion.py
 
+    # Run with Newton MJWarp physics and the Newton visualizer
+    ./isaaclab.sh -p scripts/demos/h1_locomotion.py physics=newton_mjwarp --visualizer newton
+
 """
 
 """Launch Isaac Sim Simulator first."""
@@ -40,27 +43,35 @@ parser.set_defaults(visualizer=["kit"])
 args_cli = DemoAppLauncher.parse_args(parser)
 
 # launch omniverse app
-simulation_app = DemoAppLauncher(args_cli, kit_required=True)
+simulation_app = DemoAppLauncher(args_cli)
 
 """Rest everything follows."""
 
 import torch
 from rsl_rl.runners import OnPolicyRunner
 
-import carb
-import omni
-from omni.kit.viewport.utility import get_viewport_from_window_name
-from omni.kit.viewport.utility.camera_state import ViewportCameraState
-from pxr import Gf, Sdf
-
 from isaaclab.envs import ManagerBasedRLEnv
-from isaaclab.sim.utils.stage import get_current_stage
 from isaaclab.utils.math import quat_apply
 
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper, handle_deprecated_rsl_rl_cfg
 from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
 
 from isaaclab_tasks.manager_based.locomotion.velocity.config.h1.rough_env_cfg import H1RoughEnvCfg_PLAY
+
+try:
+    import carb
+    import omni
+    from omni.kit.viewport.utility import get_viewport_from_window_name
+    from omni.kit.viewport.utility.camera_state import ViewportCameraState
+    from pxr import Gf, Sdf
+
+    from isaaclab.sim.utils.stage import get_current_stage
+
+    KIT_VIEWPORT_AVAILABLE = True
+except ModuleNotFoundError:
+    if simulation_app.app is not None:
+        raise
+    KIT_VIEWPORT_AVAILABLE = False
 
 TASK = "Isaac-Velocity-Rough-H1-v0"
 RL_LIBRARY = "rsl_rl"
@@ -98,6 +109,7 @@ class H1RoughDemo:
         env_cfg = simulation_app.configure_env_cfg(env_cfg)
         # wrap around environment for rsl-rl
         self.env = RslRlVecEnvWrapper(ManagerBasedRLEnv(cfg=env_cfg))
+        simulation_app.bind_sim(self.env.unwrapped.sim)
         self.device = self.env.unwrapped.device
         # load previously trained model
         ppo_runner = OnPolicyRunner(self.env, agent_cfg.to_dict(), log_dir=None, device=self.device)
@@ -105,14 +117,19 @@ class H1RoughDemo:
         # obtain the trained policy for inference
         self.policy = ppo_runner.get_inference_policy(device=self.device)
 
-        self.create_camera()
         self.commands = torch.zeros(env_cfg.scene.num_envs, 4, device=self.device)
         self.commands[:, 0:3] = self.env.unwrapped.command_manager.get_command("base_velocity")
-        self.set_up_keyboard()
-        self._prim_selection = omni.usd.get_context().get_selection()
         self._selected_id = None
         self._previous_selected_id = None
         self._camera_local_transform = torch.tensor([-2.5, 0.0, 0.8], device=self.device)
+        self._kit_interaction_enabled = KIT_VIEWPORT_AVAILABLE and simulation_app.app is not None
+
+        if self._kit_interaction_enabled:
+            self.create_camera()
+            self.set_up_keyboard()
+            self._prim_selection = omni.usd.get_context().get_selection()
+        else:
+            self._prim_selection = None
 
     def create_camera(self):
         """Creates a camera to be used for third-person view."""
@@ -172,6 +189,8 @@ class H1RoughDemo:
         For valid robots, we enter the third-person view for that robot.
         When a new robot is selected, we reset the command of the previously selected
         to continue random commands."""
+        if not self._kit_interaction_enabled:
+            return
 
         self._previous_selected_id = self._selected_id
         selected_prim_paths = self._prim_selection.get_selected_prim_paths()
