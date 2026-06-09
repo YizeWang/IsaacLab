@@ -10,15 +10,6 @@
     # Usage with default PhysX physics and default kit visualizer.
     ./isaaclab.sh -p scripts/demos/markers.py
 
-    # Usage with Newton visualizer and default PhysX physics.
-    ./isaaclab.sh -p scripts/demos/markers.py --visualizer newton
-
-    # Usage with Newton (MJWarp) physics and default kit visualizer.
-    ./isaaclab.sh -p scripts/demos/markers.py --physics newton_mjwarp
-
-    # Usage with Newton visualizer and Newton (MJWarp) physics.
-    ./isaaclab.sh -p scripts/demos/markers.py --visualizer newton --physics newton_mjwarp
-
 """
 
 """Parse CLI first so we can decide whether to launch Isaac Sim Kit."""
