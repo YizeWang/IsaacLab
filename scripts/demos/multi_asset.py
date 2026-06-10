@@ -7,62 +7,60 @@
 
 .. code-block:: bash
 
-    # Usage
-    ./isaaclab.sh -p scripts/demos/multi_asset.py --num_envs 2048
+    # Usage with default PhysX physics and default kit visualizer.
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --num_envs 128
+
+    # Usage with Newton visualizer and default PhysX physics.
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --visualizer newton --num_envs 128
 
 """
 
 from __future__ import annotations
 
-"""Launch Isaac Sim Simulator first."""
-
+"""Parse CLI first so we can decide whether to launch Isaac Sim Kit."""
 
 import argparse
+from typing import TYPE_CHECKING
 
-from isaaclab.app import AppLauncher
+from isaaclab.app import add_launcher_args, launch_simulation
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="Demo on spawning different objects in multiple environments.")
+parser = argparse.ArgumentParser(
+    description="Demo on spawning different objects in multiple environments.",
+    conflict_handler="resolve",
+)
 parser.add_argument("--num_envs", type=int, default=512, help="Number of environments to spawn.")
-# append AppLauncher cli args
-AppLauncher.add_app_launcher_args(parser)
+parser.add_argument("--physics", default="physx", choices=["physx", "newton_mjwarp"], help="Physics backend.")
+add_launcher_args(parser)
 # demos should open Kit visualizer by default
 parser.set_defaults(visualizer=["kit"])
 # parse the arguments
 args_cli = parser.parse_args()
 
-# launch omniverse app
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
-
 """Rest everything follows."""
 
 import random
 
-from pxr import Gf, Sdf
-
 import isaaclab.sim as sim_utils
-from isaaclab.assets import (
-    Articulation,
-    ArticulationCfg,
-    AssetBaseCfg,
-    RigidObject,
-    RigidObjectCfg,
-    RigidObjectCollection,
-    RigidObjectCollectionCfg,
-)
-from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
-from isaaclab.sim import SimulationContext
+
+##
+# Pre-defined configs
+##
+from isaaclab.assets import ArticulationCfg,AssetBaseCfg,RigidObjectCfg,RigidObjectCollectionCfg
+from isaaclab.physics import PhysicsCfg
+from isaaclab.scene import InteractiveSceneCfg
+from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg  # isort:skip
+from isaaclab_assets.robots.anymal import ANYDRIVE_3_LSTM_ACTUATOR_CFG  # isort: skip
+
 from isaaclab.sim.utils.stage import get_current_stage
 from isaaclab.utils import Timer
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.configclass import configclass
 
-##
-# Pre-defined Configuration
-##
 
-from isaaclab_assets.robots.anymal import ANYDRIVE_3_LSTM_ACTUATOR_CFG  # isort: skip
+if TYPE_CHECKING:
+    from isaaclab.assets import Articulation, RigidObject, RigidObjectCollection
+    from isaaclab.scene import InteractiveScene
 
 
 ##
@@ -72,6 +70,8 @@ from isaaclab_assets.robots.anymal import ANYDRIVE_3_LSTM_ACTUATOR_CFG  # isort:
 
 def randomize_shape_color(prim_path_expr: str):
     """Randomize the color of the geometry."""
+    from pxr import Gf, Sdf
+
     # get stage handle
     stage = get_current_stage()
     # resolve prim paths for spawning and cloning
@@ -223,7 +223,7 @@ class MultiObjectSceneCfg(InteractiveSceneCfg):
 ##
 
 
-def run_simulator(sim: SimulationContext, scene: InteractiveScene):
+def run_simulator(sim: "sim_utils.SimulationContext", scene: "InteractiveScene"):
     """Runs the simulation loop."""
     # Extract scene entities
     # note: we only do this here for readability.
@@ -233,8 +233,8 @@ def run_simulator(sim: SimulationContext, scene: InteractiveScene):
     # Define simulation stepping
     sim_dt = sim.get_physics_dt()
     count = 0
-    # Simulation loop
-    while simulation_app.is_running():
+    # Step while a visualizer window is still open (or none exist, e.g. headless); works for kit and newton.
+    while sim.is_headless_or_exist_active_visualizer():
         # Reset
         if count % 250 == 0:
             # reset counter
@@ -284,33 +284,31 @@ def run_simulator(sim: SimulationContext, scene: InteractiveScene):
 
 def main():
     """Main function."""
-    # Load kit helper
-    sim_cfg = sim_utils.SimulationCfg(dt=0.005, device=args_cli.device)
-    sim = SimulationContext(sim_cfg)
-    # Set main camera
-    sim.set_camera_view([2.5, 0.0, 4.0], [0.0, 0.0, 2.0])
+    with launch_simulation(cfg=PhysicsCfg(), launcher_args=args_cli) as physics_cfg:
+        sim_cfg = sim_utils.SimulationCfg(dt=0.005, device=args_cli.device, physics=physics_cfg)
+        sim = sim_utils.SimulationContext(sim_cfg)
+        # Set main camera
+        sim.set_camera_view([2.5, 0.0, 4.0], [0.0, 0.0, 2.0])
 
-    # Design scene
-    scene_cfg = MultiObjectSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0, replicate_physics=True)
-    with Timer("[INFO] Time to create scene: "):
-        scene = InteractiveScene(scene_cfg)
+        # Design scene
+        scene_cfg = MultiObjectSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0, replicate_physics=True)
+        with Timer("[INFO] Time to create scene: "):
+            scene = scene_cfg.class_type(scene_cfg)
 
-    with Timer("[INFO] Time to randomize scene: "):
-        # DO YOUR OWN OTHER KIND OF RANDOMIZATION HERE!
-        # Note: Just need to acquire the right attribute about the property you want to set
-        # Here is an example on setting color randomly
-        randomize_shape_color(scene_cfg.object.prim_path)
+        with Timer("[INFO] Time to randomize scene: "):
+            # DO YOUR OWN OTHER KIND OF RANDOMIZATION HERE!
+            # Note: Just need to acquire the right attribute about the property you want to set
+            # Here is an example on setting color randomly
+            randomize_shape_color(scene_cfg.object.prim_path)
 
-    # Play the simulator
-    sim.reset()
-    # Now we are ready!
-    print("[INFO]: Setup complete...")
-    # Run the simulator
-    run_simulator(sim, scene)
+        # Play the simulator
+        sim.reset()
+        # Now we are ready!
+        print("[INFO]: Setup complete...")
+        # Run the simulator
+        run_simulator(sim, scene)
 
 
 if __name__ == "__main__":
     # run the main execution
     main()
-    # close sim app
-    simulation_app.close()
