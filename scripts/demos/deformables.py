@@ -10,14 +10,8 @@
     # Usage with default PhysX physics and default kit visualizer.
     ./isaaclab.sh -p scripts/demos/deformables.py
 
-    # Usage with Newton visualizer and default PhysX physics.
-    ./isaaclab.sh -p scripts/demos/deformables.py --visualizer newton
-
     # Usage with Newton MJWarp backend and default kit visualizer.
     ./isaaclab.sh -p scripts/demos/deformables.py --physics newton_mjwarp
-
-    # Usage with Newton visualizer and Newton MJWarp backend.
-    ./isaaclab.sh -p scripts/demos/deformables.py --visualizer newton --physics newton_mjwarp
 
 """
 
