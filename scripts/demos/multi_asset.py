@@ -46,10 +46,9 @@ import isaaclab.sim as sim_utils
 ##
 # Pre-defined configs
 ##
-from isaaclab.assets import ArticulationCfg,AssetBaseCfg,RigidObjectCfg,RigidObjectCollectionCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg, RigidObjectCollectionCfg
 from isaaclab.physics import PhysicsCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg  # isort:skip
 from isaaclab_assets.robots.anymal import ANYDRIVE_3_LSTM_ACTUATOR_CFG  # isort: skip
 
 from isaaclab.sim.utils.stage import get_current_stage
@@ -257,13 +256,11 @@ def run_simulator(sim: "sim_utils.SimulationContext", scene: "InteractiveScene")
             root_pose = robot.data.default_root_pose.torch.clone()
             root_pose[:, :3] += scene.env_origins
             robot.write_root_pose_to_sim_index(root_pose=root_pose)
-            root_vel = robot.data.default_root_vel.torch.clone()
+            root_vel = robot.data.default_root_vel.torch
             robot.write_root_velocity_to_sim_index(root_velocity=root_vel)
             # -- joint state
-            joint_pos, joint_vel = (
-                robot.data.default_joint_pos.torch.clone(),
-                robot.data.default_joint_vel.torch.clone(),
-            )
+            joint_pos = robot.data.default_joint_pos.torch
+            joint_vel = robot.data.default_joint_vel.torch
             robot.write_joint_position_to_sim_index(position=joint_pos)
             robot.write_joint_velocity_to_sim_index(velocity=joint_vel)
             # clear internal buffers
