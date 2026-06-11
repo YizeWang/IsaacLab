@@ -65,8 +65,6 @@ add_launcher_args(parser)
 parser.set_defaults(visualizer=["kit"])
 args_cli = parser.parse_args()
 
-"""Rest everything follows."""
-
 import random
 
 import torch
