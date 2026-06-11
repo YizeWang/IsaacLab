@@ -213,7 +213,7 @@ def run_simulator(sim: "sim_utils.SimulationContext", entities: dict[str, "Artic
             robot.update(sim_dt)
 
 
-def main()
+def main():
     """Main function."""
     with launch_simulation(cfg=PhysicsCfg(), launcher_args=args_cli) as physics_cfg:
         # The default newton mjwarp solver configuration needs to be tuned for these arms.

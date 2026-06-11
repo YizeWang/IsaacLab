@@ -85,6 +85,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from isaaclab.utils.configclass import configclass
+
 from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG  # isort: skip
 
 if TYPE_CHECKING:
