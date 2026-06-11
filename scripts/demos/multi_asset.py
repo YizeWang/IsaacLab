@@ -8,16 +8,16 @@
 .. code-block:: bash
 
     # Usage with default PhysX physics and default kit visualizer.
-    ./isaaclab.sh -p scripts/demos/multi_asset.py --num_envs 128
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --num_envs 1024
 
     # Usage with Newton visualizer and default PhysX physics.
-    ./isaaclab.sh -p scripts/demos/multi_asset.py --visualizer newton --num_envs 128
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --visualizer newton --num_envs 1024
 
     # Usage with Newton (MJWarp) physics and default kit visualizer.
-    ./isaaclab.sh -p scripts/demos/multi_asset.py --physics newton_mjwarp --num_envs 128
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --physics newton_mjwarp --num_envs 1024
 
     # Usage with Newton visualizer and Newton (MJWarp) physics.
-    ./isaaclab.sh -p scripts/demos/multi_asset.py --visualizer newton --physics newton_mjwarp --num_envs 128
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --visualizer newton --physics newton_mjwarp --num_envs 1024
 
 """
 
@@ -143,7 +143,7 @@ class MultiObjectSceneCfg(InteractiveSceneCfg):
     object_collection: RigidObjectCollectionCfg = RigidObjectCollectionCfg(
         rigid_objects={
             "object_A": RigidObjectCfg(
-                prim_path="/World/envs/env_.*/ObjectCollection/Object_A",
+                prim_path="/World/envs/env_.*/Object_A",
                 spawn=sim_utils.SphereCfg(
                     radius=0.1,
                     visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0), metallic=0.2),
@@ -156,7 +156,7 @@ class MultiObjectSceneCfg(InteractiveSceneCfg):
                 init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, -0.5, 2.0)),
             ),
             "object_B": RigidObjectCfg(
-                prim_path="/World/envs/env_.*/ObjectCollection/Object_B",
+                prim_path="/World/envs/env_.*/Object_B",
                 spawn=sim_utils.CuboidCfg(
                     size=(0.1, 0.1, 0.1),
                     visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0), metallic=0.2),
@@ -169,7 +169,7 @@ class MultiObjectSceneCfg(InteractiveSceneCfg):
                 init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.5, 2.0)),
             ),
             "object_C": RigidObjectCfg(
-                prim_path="/World/envs/env_.*/ObjectCollection/Object_C",
+                prim_path="/World/envs/env_.*/Object_C",
                 spawn=sim_utils.CylinderCfg(
                     radius=0.1,
                     height=0.3,
