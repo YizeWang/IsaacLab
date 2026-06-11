@@ -13,6 +13,12 @@
     # Usage with Newton visualizer and default PhysX physics.
     ./isaaclab.sh -p scripts/demos/multi_asset.py --visualizer newton --num_envs 128
 
+    # Usage with Newton (MJWarp) physics and default kit visualizer.
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --physics newton_mjwarp --num_envs 128
+
+    # Usage with Newton visualizer and Newton (MJWarp) physics.
+    ./isaaclab.sh -p scripts/demos/multi_asset.py --visualizer newton --physics newton_mjwarp --num_envs 128
+
 """
 
 from __future__ import annotations
@@ -37,8 +43,6 @@ parser.set_defaults(visualizer=["kit"])
 # parse the arguments
 args_cli = parser.parse_args()
 
-"""Rest everything follows."""
-
 import random
 
 import isaaclab.sim as sim_utils
@@ -49,13 +53,13 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg, RigidObjectCollectionCfg
 from isaaclab.physics import PhysicsCfg
 from isaaclab.scene import InteractiveSceneCfg
+
 from isaaclab_assets.robots.anymal import ANYDRIVE_3_LSTM_ACTUATOR_CFG  # isort: skip
 
 from isaaclab.sim.utils.stage import get_current_stage
 from isaaclab.utils import Timer
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.configclass import configclass
-
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation, RigidObject, RigidObjectCollection
@@ -85,7 +89,8 @@ def randomize_shape_color(prim_path_expr: str):
             # Note: Just need to acquire the right attribute about the property you want to set
             # Here is an example on setting color randomly
             color_spec = prim_spec.GetAttributeAtPath(prim_path + "/geometry/material/Shader.inputs:diffuseColor")
-            color_spec.default = Gf.Vec3f(random.random(), random.random(), random.random())
+            if color_spec is not None:
+                color_spec.default = Gf.Vec3f(random.random(), random.random(), random.random())
 
 
 ##
@@ -222,7 +227,7 @@ class MultiObjectSceneCfg(InteractiveSceneCfg):
 ##
 
 
-def run_simulator(sim: "sim_utils.SimulationContext", scene: "InteractiveScene"):
+def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     """Runs the simulation loop."""
     # Extract scene entities
     # note: we only do this here for readability.
@@ -289,6 +294,10 @@ def main():
 
         # Design scene
         scene_cfg = MultiObjectSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0, replicate_physics=True)
+        if args_cli.physics == "newton_mjwarp":
+            # Newton/MJWarp requires a uniform layout, not supporting different setups across environments.
+            scene_cfg.object.spawn.assets_cfg = scene_cfg.object.spawn.assets_cfg[1:2]
+            scene_cfg.robot.spawn.usd_path = scene_cfg.robot.spawn.usd_path[0]
         with Timer("[INFO] Time to create scene: "):
             scene = scene_cfg.class_type(scene_cfg)
 
