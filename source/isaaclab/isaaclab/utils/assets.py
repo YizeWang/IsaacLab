@@ -18,10 +18,12 @@ import logging
 import os
 import posixpath
 import re
+import shutil
 import subprocess
 import tempfile
 from typing import Literal
 from urllib.parse import urlparse
+from urllib.request import urlopen
 
 logger = logging.getLogger(__name__)
 
@@ -340,8 +342,17 @@ def retrieve_file_path(path: str, download_dir: str | None = None, force_downloa
 
             is_root_asset = local_root is None
             if not os.path.isfile(target_path) or force_download:
-                result = omni.client.copy(cur_url, target_path, omni.client.CopyBehavior.OVERWRITE)
-                if result != omni.client.Result.OK:
+                copy_succeeded = False
+                if urlparse(cur_url).scheme in ("http", "https"):
+                    try:
+                        _download_http_file(cur_url, target_path)
+                        copy_succeeded = True
+                    except Exception:
+                        logger.debug("Direct HTTP download failed for asset: %s", cur_url, exc_info=True)
+                if not copy_succeeded:
+                    result = omni.client.copy(cur_url, target_path, omni.client.CopyBehavior.OVERWRITE)
+                    copy_succeeded = result == omni.client.Result.OK
+                if not copy_succeeded:
                     if force_download or is_root_asset:
                         raise RuntimeError(f"Unable to copy file: '{cur_url}'. Is the Nucleus Server running?")
                     logger.debug("Skipping unavailable dependency: %s", cur_url)
@@ -359,6 +370,26 @@ def retrieve_file_path(path: str, download_dir: str | None = None, force_downloa
         return os.path.abspath(local_root)
     else:
         raise FileNotFoundError(f"Unable to find the file: {path}")
+
+
+def _download_http_file(url: str, target_path: str) -> None:
+    """Download an HTTP asset to a local path atomically.
+
+    Args:
+        url: Source HTTP or HTTPS URL.
+        target_path: Destination file path.
+    """
+    temporary_path = None
+    try:
+        with urlopen(url) as response:
+            with tempfile.NamedTemporaryFile(dir=os.path.dirname(target_path), delete=False) as output_file:
+                temporary_path = output_file.name
+                shutil.copyfileobj(response, output_file)
+        os.replace(temporary_path, target_path)
+    except Exception:
+        if temporary_path is not None and os.path.exists(temporary_path):
+            os.remove(temporary_path)
+        raise
 
 
 def read_file(path: str) -> io.BytesIO:

@@ -7,9 +7,12 @@ from __future__ import annotations
 
 """Launch Isaac Sim Simulator first."""
 import importlib
+import io
 from pathlib import Path
 
 import pytest
+
+import omni.client
 
 import isaaclab.utils.assets as assets_utils
 
@@ -104,6 +107,44 @@ def test_find_asset_dependencies_missing_mdl_does_not_log_traceback(tmp_path, ca
 
     assert assets_utils._find_asset_dependencies(str(missing_mdl)) == set()
     assert "Traceback (most recent call last):" not in caplog.text
+
+
+def test_retrieve_file_path_downloads_http_dependency_without_omni_copy(tmp_path, monkeypatch):
+    """Test downloading an HTTP dependency directly instead of through the Omniverse client."""
+    root_url = "https://example.com/Assets/Robots/H1/h1_minimal.usd"
+    dependency_url = "https://example.com/Assets/Robots/H1/instanceable_meshes.usd"
+    root_contents = b"root asset"
+    dependency_contents = b"mesh asset"
+    copied_urls = []
+
+    def copy_file(source: str, target: str, behavior) -> omni.client.Result:
+        copied_urls.append(source)
+        if source == root_url:
+            Path(target).write_bytes(root_contents)
+            return omni.client.Result.OK
+        return omni.client.Result.ERROR
+
+    def find_dependencies(path: str) -> set[str]:
+        if path.endswith("h1_minimal.usd"):
+            return {"./instanceable_meshes.usd"}
+        return set()
+
+    def open_url(url: str):
+        if url == root_url:
+            raise OSError("direct root download unavailable")
+        assert url == dependency_url
+        return io.BytesIO(dependency_contents)
+
+    monkeypatch.setattr(assets_utils, "check_file_path", lambda _: 2)
+    monkeypatch.setattr(assets_utils, "_find_asset_dependencies", find_dependencies)
+    monkeypatch.setattr(assets_utils, "urlopen", open_url, raising=False)
+    monkeypatch.setattr(omni.client, "copy", copy_file)
+
+    root_path = Path(assets_utils.retrieve_file_path(root_url, download_dir=str(tmp_path)))
+
+    assert root_path.read_bytes() == root_contents
+    assert root_path.with_name("instanceable_meshes.usd").read_bytes() == dependency_contents
+    assert copied_urls == [root_url]
 
 
 def test_retrieve_git_asset_path_uses_local_repo_path(tmp_path):

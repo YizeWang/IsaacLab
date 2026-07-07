@@ -62,6 +62,8 @@ from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_che
 from isaaclab_tasks.core.velocity.config.h1.rough_env_cfg import H1RoughEnvCfg_PLAY
 
 TASK = "Isaac-Velocity-Rough-H1"
+# The published Isaac 6.0 checkpoint still uses the legacy versioned task identifier.
+PRETRAINED_CHECKPOINT_TASK = f"{TASK}-v0"
 RL_LIBRARY = "rsl_rl"
 
 
@@ -86,7 +88,9 @@ class H1RoughDemo:
         agent_cfg: RslRlOnPolicyRunnerCfg = cli_args.parse_rsl_rl_cfg(TASK, args_cli)
         agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, metadata.version("rsl-rl-lib"))
         # load the trained jit policy
-        checkpoint = get_published_pretrained_checkpoint(RL_LIBRARY, TASK)
+        checkpoint = get_published_pretrained_checkpoint(RL_LIBRARY, PRETRAINED_CHECKPOINT_TASK)
+        if checkpoint is None:
+            raise RuntimeError(f"No published pre-trained checkpoint is available for '{PRETRAINED_CHECKPOINT_TASK}'.")
         # create envionrment
         env_cfg = H1RoughEnvCfg_PLAY()
         env_cfg.scene.num_envs = 25
